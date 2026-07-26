@@ -163,7 +163,6 @@ function getPaymentLink(method, amount, note){
 }
 
 const PENDING_ORDER_KEY = 'vp8PendingOrder';
-const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 let cart = [];
 let cartIdSeq = 1;
@@ -421,13 +420,7 @@ async function submitOrder(){
     total,
   };
 
-  // Reserve a tab synchronously (before any await) on desktop so the
-  // eventual navigation to Venmo/PayPal is still treated as user-initiated.
-  // On mobile, a reserved/background tab doesn't reliably get app-intent
-  // handoff — the redirect has to happen as a direct, same-tab navigation
-  // (see showPaymentPage), so we don't open a popup there at all.
   const needsExternalPayment = payment !== 'Cash' && payment !== 'Check';
-  const paymentWindow = (needsExternalPayment && !isMobileDevice) ? window.open('', '_blank') : null;
 
   try{
     // Cash/Check have no online confirmation step, so record immediately.
@@ -441,7 +434,7 @@ async function submitOrder(){
     }
 
     // Show payment page
-    showPaymentPage(order, paymentWindow);
+    showPaymentPage(order);
 
     // Clear form
     document.getElementById('buyerName').value = '';
@@ -483,7 +476,7 @@ function renderOrderSummary(order){
   document.getElementById('orderSummary').innerHTML = summaryHtml;
 }
 
-function showPaymentPage(order, paymentWindow){
+function showPaymentPage(order){
   renderOrderSummary(order);
   document.getElementById('paymentOverlay').classList.add('active');
   window.scrollTo(0, 0);
@@ -535,44 +528,23 @@ function showPaymentPage(order, paymentWindow){
   renderCart();
   confirmBtn.classList.remove('hidden');
 
-  if(isMobileDevice){
-    // Android/iOS only hand a link's full URL (amount/note included) off to
-    // the installed Venmo/PayPal app when the navigation is a direct,
-    // same-tab redirect tied to the user's tap. Anything indirect (a
-    // popup/new tab, or a navigation set after an await) gets treated as
-    // untrusted and the app opens without the amount pre-filled.
-    document.getElementById('paymentNote').innerHTML = `
-      <div style="text-align: center; line-height: 1.8;">
-        <strong>Redirecting you to ${order.payment}…</strong><br><br>
-        Once you've completed your payment, come back to this tab and tap the button below.<br>
-        Your order will not be recorded until you confirm.
-      </div>
-    `;
-    window.location.href = link;
-    return;
-  }
-
-  if(!paymentWindow){
-    // Popup was blocked — the order has NOT been recorded yet. Give the
-    // buyer a real link to tap (a genuine click, so the app handoff still
-    // works), then let them confirm once they've paid.
-    document.getElementById('paymentNote').innerHTML = `
-      <div style="color: var(--danger); line-height: 1.6;">
-        <strong>Payment window blocked by browser</strong><br><br>
-        <a href="${link}" target="_blank" style="color: var(--amber); text-decoration: underline;">Click here to open ${order.payment}</a><br><br>
-        Once you've sent your payment, tap the button below to finish your order.
-      </div>
-    `;
-  } else {
-    paymentWindow.location.href = link;
-    document.getElementById('paymentNote').innerHTML = `
-      <div style="text-align: center; line-height: 1.8;">
-        <strong>Your ${order.payment} payment page has opened in a new tab.</strong><br><br>
-        Once you've completed your payment, come back here and tap the button below.<br>
-        Your order will not be recorded until you confirm.
-      </div>
-    `;
-  }
+  // Use a real, user-tapped <a> link rather than a script-triggered
+  // redirect (location.href / window.open). Android/iOS only reliably hand
+  // a link's amount/note through to an installed Venmo/PayPal app when the
+  // navigation comes from a genuine tap on an anchor element — a
+  // script-initiated navigation (even one fired synchronously from a click
+  // handler) is treated as less trustworthy and the app can open without
+  // the amount pre-filled. target="_blank" also keeps this tab/page intact
+  // so the buyer can come back and confirm without losing their place.
+  document.getElementById('paymentNote').innerHTML = `
+    <div style="text-align: center; line-height: 1.8;">
+      <strong>Total Due: $${order.total.toFixed(2)}</strong><br><br>
+      <a href="${link}" target="_blank" rel="noopener" class="payment-confirm">Tap to Open ${order.payment}</a><br><br>
+      <span style="font-size: 12.5px;">If the amount doesn't fill in automatically, please enter <strong>$${order.total.toFixed(2)}</strong> manually before sending.</span><br><br>
+      Once you've sent your payment, come back to this tab and tap the button below.<br>
+      Your order will not be recorded until you confirm.
+    </div>
+  `;
 }
 
 // If the buyer was redirected away for Venmo/PayPal and the browser

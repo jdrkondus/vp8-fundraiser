@@ -397,6 +397,12 @@ main{
 }
 .payment-confirm:hover{background:var(--amber-2);}
 .payment-confirm:disabled{opacity:.5; cursor:not-allowed;}
+a.payment-confirm{
+  display:block;
+  box-sizing:border-box;
+  text-align:center;
+  text-decoration:none;
+}
 .hidden{display:none;}
 
 .field-row{margin-bottom:16px;}
