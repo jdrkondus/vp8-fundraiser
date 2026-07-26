@@ -109,6 +109,7 @@
     </div>
 
     <div class="payment-actions">
+      <button class="payment-confirm hidden" id="confirmPaymentBtn" onclick="confirmPaymentSent()">I've Completed My Payment</button>
       <button class="payment-close" onclick="closePaymentPage()">Back to Form</button>
     </div>
   </div>
@@ -150,13 +151,20 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwpZo7LjdgYQL-DeD-X_
 
 function getPaymentLink(method, amount, note){
   if(method === "PayPal"){
-    return `https://paypal.me/${PAYPAL_USERNAME}/${amount.toFixed(2)}`;
+    // PayPal.me's documented format appends the currency code directly
+    // after the amount (no separator) — this is what reliably carries the
+    // amount through when the link hands off to the installed PayPal app.
+    return `https://paypal.me/${PAYPAL_USERNAME}/${amount.toFixed(2)}USD`;
   }
-  return `https://venmo.com/${VENMO_USERNAME}?txn=pay&amount=${amount.toFixed(2)}&note=${encodeURIComponent(note)}`;
+  // Venmo's deep link requires the recipient as a "recipients" query param
+  // (not a path segment) for the amount/note to carry through when the
+  // universal link hands off to the installed Venmo app on mobile.
+  return `https://venmo.com/?txn=pay&recipients=${encodeURIComponent(VENMO_USERNAME)}&amount=${amount.toFixed(2)}&note=${encodeURIComponent(note)}`;
 }
 
 let cart = [];
 let cartIdSeq = 1;
+let pendingOrder = null;
 const selectedColor = {};
 
 let currentSlideIndex = 0;
@@ -361,6 +369,25 @@ function buildSummaryText(){
   return `VP-8 FIGHTING TIGERS — FUNDRAISER ORDER\n----------------------------------------\nBuyer: ${name}\nEmail: ${email}\nPhone: ${phone}\nPayment method: ${pay}\n\nOrder:\n${lines}\n\nTOTAL: $${total.toFixed(2)}\n\nNotes: ${notes}\n`;
 }
 
+// Posts the order to the Apps Script backend, which appends it to the
+// spreadsheet and sends the organizer/buyer confirmation emails.
+async function recordOrder(order){
+  if(!SCRIPT_URL) return;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
+  await fetch(SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    body: JSON.stringify(order),
+    signal: controller.signal,
+  }).catch(err => {
+    console.warn('Backend error (continuing):', err.message);
+  });
+
+  clearTimeout(timeout);
+}
+
 async function submitOrder(){
   if(isOrderingClosed()){
     updateDeadlineBanner();
@@ -391,27 +418,25 @@ async function submitOrder(){
     total,
   };
 
+  // Reserve a tab synchronously (before any await) so the eventual
+  // navigation to Venmo/PayPal is still treated as user-initiated by
+  // mobile browsers — required for the app handoff to carry the amount.
+  const needsExternalPayment = payment !== 'Cash' && payment !== 'Check';
+  const paymentWindow = needsExternalPayment ? window.open('', '_blank') : null;
+
   try{
-    // If backend is set up, record the order
-    if(SCRIPT_URL){
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      
-      await fetch(SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        body: JSON.stringify(order),
-        signal: controller.signal,
-      }).catch(err => {
-        console.warn('Backend error (continuing):', err.message);
-      });
-      
-      clearTimeout(timeout);
+    // Cash/Check have no online confirmation step, so record immediately.
+    // Venmo/PayPal orders are only recorded after the buyer confirms
+    // they've actually completed the payment (see confirmPaymentSent()).
+    if(!needsExternalPayment){
+      await recordOrder(order);
+    } else {
+      pendingOrder = order;
     }
-    
+
     // Show payment page
-    showPaymentPage(name, total, order.items, payment);
-    
+    showPaymentPage(name, total, order.items, payment, paymentWindow);
+
     // Clear form
     document.getElementById('buyerName').value = '';
     document.getElementById('buyerEmail').value = '';
@@ -426,7 +451,7 @@ async function submitOrder(){
   }
 }
 
-function showPaymentPage(buyerName, total, items, paymentMethod){
+function showPaymentPage(buyerName, total, items, paymentMethod, paymentWindow){
   // Build order summary
   const summaryHtml = `
     <div class="summary-line">
@@ -453,7 +478,10 @@ function showPaymentPage(buyerName, total, items, paymentMethod){
   document.getElementById('orderSummary').innerHTML = summaryHtml;
   document.getElementById('paymentOverlay').classList.add('active');
   window.scrollTo(0, 0);
-  
+
+  const confirmBtn = document.getElementById('confirmPaymentBtn');
+  confirmBtn.classList.add('hidden');
+
   // Handle different payment methods
   if(paymentMethod === 'Cash' || paymentMethod === 'Check'){
     const paymentNote = document.getElementById('paymentNote');
@@ -492,27 +520,52 @@ function showPaymentPage(buyerName, total, items, paymentMethod){
     renderCart();
   } else {
     const link = getPaymentLink(paymentMethod, total, `VP-8 Fundraiser — ${buyerName}`);
-    const paymentWindow = window.open(link, '_blank');
 
     if(!paymentWindow){
+      // Popup was blocked — the order has NOT been recorded yet. Give the
+      // buyer a real link to tap (a genuine click, so the app handoff still
+      // works), then let them confirm once they've paid.
       document.getElementById('paymentNote').innerHTML = `
         <div style="color: var(--danger); line-height: 1.6;">
           <strong>Payment window blocked by browser</strong><br><br>
-          <a href="${link}" target="_blank" style="color: var(--amber); text-decoration: underline;">Click here to open payment</a>
+          <a href="${link}" target="_blank" style="color: var(--amber); text-decoration: underline;">Click here to open ${paymentMethod}</a><br><br>
+          Once you've sent your payment, tap the button below to finish your order.
         </div>
       `;
     } else {
+      paymentWindow.location.href = link;
       document.getElementById('paymentNote').innerHTML = `
         <div style="text-align: center; line-height: 1.8;">
-          <strong>Payment window opened!</strong><br><br>
-          Your ${paymentMethod} payment window should have opened in a new tab.<br>
-          Thank you for your order!
+          <strong>Your ${paymentMethod} payment page has opened in a new tab.</strong><br><br>
+          Once you've completed your payment, come back here and tap the button below.<br>
+          Your order will not be recorded until you confirm.
         </div>
       `;
-      cart = [];
-      renderCart();
     }
+    cart = [];
+    renderCart();
+    confirmBtn.classList.remove('hidden');
   }
+}
+
+async function confirmPaymentSent(){
+  if(!pendingOrder) return;
+  const confirmBtn = document.getElementById('confirmPaymentBtn');
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'Confirming…';
+
+  await recordOrder(pendingOrder);
+  pendingOrder = null;
+
+  document.getElementById('paymentNote').innerHTML = `
+    <div style="text-align: center; line-height: 1.8;">
+      <strong>Thank you — your order has been recorded!</strong><br><br>
+      A confirmation email has been sent to you with your order details.
+    </div>
+  `;
+  confirmBtn.classList.add('hidden');
+  confirmBtn.disabled = false;
+  confirmBtn.textContent = "I've Completed My Payment";
 }
 
 function closePaymentPage(){

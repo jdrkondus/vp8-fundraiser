@@ -20,6 +20,12 @@ function doPost(e) {
   const order = JSON.parse(e.postData.contents);
   const sheet = getOrdersSheet();
 
+  Logger.log('Spreadsheet ID: ' + sheet.getParent().getId());
+  Logger.log('Spreadsheet URL: ' + sheet.getParent().getUrl());
+  Logger.log('Sheet name: ' + sheet.getName());
+  Logger.log('Order items count: ' + order.items.length);
+  Logger.log('Order payload: ' + JSON.stringify(order));
+
   order.items.forEach(function (item) {
     sheet.appendRow([
       new Date(order.submittedAt),

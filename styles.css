@@ -382,6 +382,22 @@ main{
   transition:background .15s, color .15s;
 }
 .payment-close:hover{background:#2c3d4f; color:var(--off);}
+.payment-confirm{
+  width:100%;
+  padding:12px;
+  background:var(--amber);
+  border:none;
+  border-radius:6px;
+  color:#1a1206;
+  font-size:13px;
+  font-weight:600;
+  letter-spacing:.05em;
+  cursor:pointer;
+  transition:background .15s;
+}
+.payment-confirm:hover{background:var(--amber-2);}
+.payment-confirm:disabled{opacity:.5; cursor:not-allowed;}
+.hidden{display:none;}
 
 .field-row{margin-bottom:16px;}
 .field-label{
