@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VP-8 Fighting Tigers — Fundraiser Order Form</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+<header>
+  <div class="eyebrow">Squadron Support Fundraiser</div>
+  <h1>VP-8 <span>Fighting Tigers</span></h1>
+  <div class="subhead">Apparel Order Form</div>
+  <div class="divider-line"></div>
+  <p class="mission">Every order supports the VP-8 Family Support Group. Select your gear below, add each size and color to your order, then submit your info at the bottom. Every submission is recorded privately for the organizer and emailed for confirmation.</p>
+  <div id="deadlineBanner" class="deadline-banner"></div>
+</header>
+
+<section id="imageGallery" style="max-width:1080px; margin:0 auto; padding:44px 20px 0;">
+  <div class="image-slider">
+    <div class="slider-container">
+      <div class="slider-track" id="sliderTrack"></div>
+      <button class="slider-nav prev" onclick="prevSlide()">❮</button>
+      <button class="slider-nav next" onclick="nextSlide()">❯</button>
+      <div class="slider-dots" id="sliderDots"></div>
+    </div>
+  </div>
+</section>
+
+<main>
+
+  <div>
+    <div class="section-label"><span class="num">1</span> Choose Your Gear</div>
+    <div id="productList"></div>
+  </div>
+
+  <div>
+    <div class="section-label"><span class="num">2</span> Your Order</div>
+    <div class="cart-panel">
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th><th>Color</th><th>Size</th><th class="col-num">Qty</th><th class="col-num">Unit</th><th class="col-num">Subtotal</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="cartBody"></tbody>
+      </table>
+      <div id="emptyCart" class="empty-cart">No items yet — add sizes and colors above to build your order.</div>
+      <div class="cart-total-row">
+        <span class="label">Order Total</span>
+        <span class="value" id="cartTotal">$0.00</span>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-label"><span class="num">3</span> Buyer Information</div>
+    <div class="cart-panel">
+      <div class="buyer-grid">
+        <div class="field-row full">
+          <span class="field-label">Full Name</span>
+          <input type="text" id="buyerName" placeholder="Jane Doe">
+        </div>
+        <div class="field-row">
+          <span class="field-label">Email</span>
+          <input type="email" id="buyerEmail" placeholder="jane@email.com" required>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Phone</span>
+          <input type="tel" id="buyerPhone" placeholder="(850) 555-0123">
+        </div>
+        <div class="field-row full">
+          <span class="field-label">Payment Method</span>
+          <div class="pay-options">
+            <label><input type="radio" name="pay" value="PayPal" checked> PayPal</label>
+            <label><input type="radio" name="pay" value="Venmo"> Venmo</label>
+          </div>
+        </div>
+        <div class="field-row full">
+          <span class="field-label">Notes (pickup preference, special requests, etc.)</span>
+          <textarea id="buyerNotes" placeholder="Optional"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn-primary" id="submitBtn" onclick="submitOrder()">Submit &amp; Pay</button>
+  </div>
+  <div class="toast" id="toast"></div>
+
+</main>
+
+<div class="payment-overlay" id="paymentOverlay">
+  <div class="payment-panel">
+    <div class="payment-header">
+      <h2>Order Confirmed!</h2>
+      <div class="status">Your order has been recorded</div>
+    </div>
+
+    <div class="order-summary" id="orderSummary"></div>
+
+    <div class="payment-note" id="paymentNote">
+      Redirecting to complete your payment...
+    </div>
+
+    <div class="payment-actions">
+      <button class="payment-close" onclick="closePaymentPage()">Back to Form</button>
+    </div>
+  </div>
+</div>
+
+<footer>VP8TSG · Thank you for supporting the squadron</footer>
+
+<script>
+const COLORS = {
+  "Light Blue": "#2f6fb0",
+  "Navy Blue":  "#1f3f6b",
+  "Orange": "#d9601f",
+  "Tan":    "#b79766",
+  "Green":  "#2f4a34",
+  "Black":  "#1c1c1c",
+};
+const SIZES = ["XS","S","M","L","XL","2XL","3XL"];
+const YOUTH_SIZES = ["YXS","YS","YM","YL"];
+
+const PRODUCTS = [
+  { id: "unisex", name: "Unisex T-Shirt", desc: "Classic crew neck fit. Front chest logo, full tiger-eyes back print.", price: 25, colors: ["Light Blue","Navy Blue","Orange","Tan","Green","Black"], image: "images/IMG_20260724_212124.jpg" },
+  { id: "womens", name: "Women's Tank", desc: "Racerback tank fit. Front chest logo, full tiger-eyes back print.", price: 20, colors: ["Black"], image: "images/IMG_20260724_212126.jpg" },
+  { id: "kids", name: "Child's Tee", desc: "Youth crew tee. Front chest logo, full tiger-eyes back print.", price: 20, colors: ["Light Blue", "Navy Blue", "Orange","Tan","Green","Black"], image: "images/IMG_20260724_212128.jpg" },
+];
+
+// --- Payment + backend config ---------------------------------------
+// Fill in your PayPal.me username (e.g. "jdoe" for paypal.me/jdoe) and
+// your Venmo username (e.g. "jdoe" for venmo.com/jdoe). Leave blank to
+// fall back to the generic app homepage.
+const PAYPAL_USERNAME = "vp8fightingtigerstsg";
+const VENMO_USERNAME = "Allysa-Robinson";
+
+// Orders are not accepted after this date/time.
+const ORDER_DEADLINE = new Date('2026-08-07T12:00:00');
+
+// Paste the deployed Google Apps Script Web App URL here (see setup
+// instructions). Until this is set, orders will NOT be recorded or emailed.
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwpZo7LjdgYQL-DeD-X_OIJ-fPGxYUUB5ZG8crcx76FKX7dY_2yLK1wx1NTCoIm_1eswg/exec";
+
+function getPaymentLink(method, amount, note){
+  if(method === "PayPal"){
+    return `https://paypal.me/${PAYPAL_USERNAME}/${amount.toFixed(2)}`;
+  }
+  return `https://venmo.com/${VENMO_USERNAME}?txn=pay&amount=${amount.toFixed(2)}&note=${encodeURIComponent(note)}`;
+}
+
+let cart = [];
+let cartIdSeq = 1;
+const selectedColor = {};
+
+let currentSlideIndex = 0;
+const imageFiles = [
+  'IMG_20260724_212115.jpg',
+  'IMG_20260724_212118.jpg',
+  'IMG_20260724_212121.jpg',
+  'IMG_20260724_212123.jpg',
+  'IMG_20260724_212124.jpg',
+  'IMG_20260724_212127.jpg',
+];
+
+function renderImageGallery(){
+  const track = document.getElementById('sliderTrack');
+  const dots = document.getElementById('sliderDots');
+  
+  track.innerHTML = imageFiles.map(img => `
+    <div class="slider-slide">
+      <img src="images/${img}" alt="VP-8 Apparel">
+    </div>
+  `).join('');
+  
+  dots.innerHTML = imageFiles.map((_, i) => `
+    <div class="slider-dot ${i===0?'active':''}" onclick="goToSlide(${i})"></div>
+  `).join('');
+  
+  updateSlider();
+}
+
+function updateSlider(){
+  const track = document.getElementById('sliderTrack');
+  track.style.transform = `translateX(-${currentSlideIndex * 100}%)`;
+  
+  document.querySelectorAll('.slider-dot').forEach((dot, i) => {
+    dot.classList.toggle('active', i === currentSlideIndex);
+  });
+}
+
+function prevSlide(){
+  currentSlideIndex = (currentSlideIndex - 1 + imageFiles.length) % imageFiles.length;
+  updateSlider();
+}
+
+function nextSlide(){
+  currentSlideIndex = (currentSlideIndex + 1) % imageFiles.length;
+  updateSlider();
+}
+
+function goToSlide(index){
+  currentSlideIndex = index;
+  updateSlider();
+}
+
+function renderProducts(){
+  const wrap = document.getElementById('productList');
+  wrap.innerHTML = PRODUCTS.map(p => {
+    selectedColor[p.id] = selectedColor[p.id] || p.colors[0];
+    return `
+    ${p.image ? `<div style="margin-bottom:16px; border-radius:10px; overflow:hidden; border:1px solid var(--line);"><img src="${p.image}" alt="${p.name}" style="width:100%; height:auto; display:block;"></div>` : ''}
+    <div class="product-card">
+      <div class="product-top">
+        <div>
+          <div class="product-name">${p.name}</div>
+          <div class="product-desc">${p.desc}</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="product-price">$<span id="priceLabel-${p.id}">${p.price.toFixed(2)}</span></div>
+          <div style="font-size:12px; color:var(--slate-dim); margin-top:4px;">
+            Subtotal: $<span id="subtotal-${p.id}">0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <span class="field-label">Color</span>
+        <div class="swatches" id="swatches-${p.id}">
+          ${p.colors.map(c => `
+            <div class="swatch ${c===selectedColor[p.id]?'active':''}" onclick="selectColor('${p.id}','${c}')" id="swatch-${p.id}-${c}">
+              <span class="dot" style="background:${COLORS[c]}"></span>${c}
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="field-row">
+        <span class="field-label">Size &amp; Quantity</span>
+        <div class="size-grid">
+          ${(p.id === "kids" ? YOUTH_SIZES : SIZES).map(s => `
+            <div class="size-cell">
+              <label>${s}</label>
+              <input type="number" min="0" value="0" id="qty-${p.id}-${s}" onchange="updateSubtotal('${p.id}')">
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <button class="add-btn" onclick="addToCart('${p.id}')">+ Add to Order</button>
+      <div class="add-note">Enter a quantity for each size you need in the color above, then add. Repeat for other colors.</div>
+    </div>
+  `;
+  }).join('');
+}
+
+function updateSubtotal(productId){
+  const p = PRODUCTS.find(x=>x.id===productId);
+  let total = 0;
+  (p.id === "kids" ? YOUTH_SIZES : SIZES).forEach(s => {
+    const input = document.getElementById(`qty-${productId}-${s}`);
+    const qty = parseInt(input.value) || 0;
+    total += qty * p.price;
+  });
+  document.getElementById(`subtotal-${productId}`).textContent = total.toFixed(2);
+}
+
+function addToCart(productId){
+  const p = PRODUCTS.find(x=>x.id===productId);
+  const color = selectedColor[productId];
+  let added = false;
+  const sizesToUse = p.id === "kids" ? YOUTH_SIZES : SIZES;
+  sizesToUse.forEach(s => {
+    const input = document.getElementById(`qty-${productId}-${s}`);
+    const qty = parseInt(input.value) || 0;
+    if(qty > 0){
+      const existing = cart.find(l => l.productId===productId && l.color===color && l.size===s);
+      if(existing){ existing.qty += qty; }
+      else {
+        cart.push({ cartId: cartIdSeq++, productId, name: p.name, color, size: s, qty, unitPrice: p.price });
+      }
+      input.value = 0;
+      added = true;
+    }
+  });
+  if(added){ 
+    updateSubtotal(productId);
+    renderCart(); 
+    flashToast(`Added to order.`); 
+  }
+  else { flashToast(`Enter a quantity for at least one size first.`, true); }
+}
+
+function selectColor(productId, color){
+  selectedColor[productId] = color;
+  const p = PRODUCTS.find(x=>x.id===productId);
+  p.colors.forEach(c=>{
+    document.getElementById(`swatch-${productId}-${c}`).classList.toggle('active', c===color);
+  });
+  updateSubtotal(productId);
+}
+
+function removeFromCart(cartId){
+  cart = cart.filter(l => l.cartId !== cartId);
+  renderCart();
+}
+
+function renderCart(){
+  const body = document.getElementById('cartBody');
+  const empty = document.getElementById('emptyCart');
+  if(cart.length === 0){
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    document.getElementById('cartTotal').textContent = '$0.00';
+    return;
+  }
+  empty.style.display = 'none';
+  let total = 0;
+  body.innerHTML = cart.map(l => {
+    const sub = l.qty * l.unitPrice;
+    total += sub;
+    return `
+      <tr>
+        <td>${l.name}</td>
+        <td><span class="swatch-mini"><span class="dot" style="background:${COLORS[l.color]}"></span>${l.color}</span></td>
+        <td>${l.size}</td>
+        <td class="col-num">${l.qty}</td>
+        <td class="col-num">$${l.unitPrice.toFixed(2)}</td>
+        <td class="col-num">$${sub.toFixed(2)}</td>
+        <td><button class="remove-btn" onclick="removeFromCart(${l.cartId})">✕</button></td>
+      </tr>
+    `;
+  }).join('');
+  document.getElementById('cartTotal').textContent = `$${total.toFixed(2)}`;
+}
+
+function flashToast(msg, isWarn){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.color = isWarn ? '#d9634d' : '#5fb87a';
+  setTimeout(()=>{ if(t.textContent===msg) t.textContent=''; }, 3200);
+}
+
+function buildSummaryText(){
+  const name = document.getElementById('buyerName').value || '(name not entered)';
+  const email = document.getElementById('buyerEmail').value || '(no email)';
+  const phone = document.getElementById('buyerPhone').value || '(no phone)';
+  const notes = document.getElementById('buyerNotes').value || '(none)';
+  const pay = document.querySelector('input[name=pay]:checked').value;
+  if(cart.length === 0) return null;
+  let total = 0;
+  const lines = cart.map(l => {
+    const sub = l.qty * l.unitPrice;
+    total += sub;
+    return `  ${l.qty} x ${l.name} — ${l.color} / ${l.size} — $${l.unitPrice.toFixed(2)} ea = $${sub.toFixed(2)}`;
+  }).join('\n');
+  return `VP-8 FIGHTING TIGERS — FUNDRAISER ORDER\n----------------------------------------\nBuyer: ${name}\nEmail: ${email}\nPhone: ${phone}\nPayment method: ${pay}\n\nOrder:\n${lines}\n\nTOTAL: $${total.toFixed(2)}\n\nNotes: ${notes}\n`;
+}
+
+async function submitOrder(){
+  if(isOrderingClosed()){
+    updateDeadlineBanner();
+    flashToast('Ordering has closed for this fundraiser.', true);
+    return;
+  }
+  if(cart.length === 0){ flashToast('Add at least one item before submitting.', true); return; }
+  const name = document.getElementById('buyerName').value.trim();
+  if(!name){ flashToast('Please enter your name before submitting.', true); return; }
+  const email = document.getElementById('buyerEmail').value.trim();
+  if(!email){ flashToast('Please enter your email before submitting.', true); return; }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting…';
+
+  const payment = document.querySelector('input[name=pay]:checked').value;
+  const total = cart.reduce((sum,l)=> sum + l.qty*l.unitPrice, 0);
+  const order = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+    submittedAt: new Date().toISOString(),
+    buyerName: name,
+    buyerEmail: email,
+    buyerPhone: document.getElementById('buyerPhone').value.trim(),
+    payment,
+    notes: document.getElementById('buyerNotes').value.trim(),
+    items: cart.map(l => ({ name: l.name, color: l.color, size: l.size, qty: l.qty, unitPrice: l.unitPrice })),
+    total,
+  };
+
+  try{
+    // If backend is set up, record the order
+    if(SCRIPT_URL){
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      
+      await fetch(SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: JSON.stringify(order),
+        signal: controller.signal,
+      }).catch(err => {
+        console.warn('Backend error (continuing):', err.message);
+      });
+      
+      clearTimeout(timeout);
+    }
+    
+    // Show payment page
+    showPaymentPage(name, total, order.items, payment);
+    
+    // Clear form
+    document.getElementById('buyerName').value = '';
+    document.getElementById('buyerEmail').value = '';
+    document.getElementById('buyerPhone').value = '';
+    document.getElementById('buyerNotes').value = '';
+  } catch(err){
+    console.error('Submit error:', err);
+    flashToast('Could not submit the order.', true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Submit & Pay';
+  }
+}
+
+function showPaymentPage(buyerName, total, items, paymentMethod){
+  // Build order summary
+  const summaryHtml = `
+    <div class="summary-line">
+      <span class="label">Order ID</span>
+      <span class="value">#${Date.now().toString().slice(-6)}</span>
+    </div>
+    <div class="summary-line">
+      <span class="label">Buyer</span>
+      <span class="value">${buyerName}</span>
+    </div>
+    <div class="summary-line">
+      <span class="label">Payment Method</span>
+      <span class="value">${paymentMethod}</span>
+    </div>
+    <div class="summary-line">
+      <span class="label">Items</span>
+      <span class="value">${items.reduce((sum, i) => sum + i.qty, 0)} items</span>
+    </div>
+    <div class="summary-total">
+      <span class="label">Total Due</span>
+      <span class="value">$${total.toFixed(2)}</span>
+    </div>
+  `;
+  document.getElementById('orderSummary').innerHTML = summaryHtml;
+  document.getElementById('paymentOverlay').classList.add('active');
+  window.scrollTo(0, 0);
+  
+  // Handle different payment methods
+  if(paymentMethod === 'Cash' || paymentMethod === 'Check'){
+    const paymentNote = document.getElementById('paymentNote');
+    if(paymentMethod === 'Cash'){
+      paymentNote.innerHTML = `
+        <div style="text-align: left; line-height: 1.8;">
+          <strong>Payment Instructions for Cash:</strong><br>
+          <br>
+          Your order total is <strong>$${total.toFixed(2)}</strong>.<br>
+          <br>
+          Please deliver cash payment to:<br>
+          <strong>Squadron Support Fundraiser</strong><br>
+          <strong>Contact organizer for pickup details</strong><br>
+          <br>
+          A confirmation email has been sent to you with your order details.
+        </div>
+      `;
+    } else {
+      paymentNote.innerHTML = `
+        <div style="text-align: left; line-height: 1.8;">
+          <strong>Payment Instructions for Check:</strong><br>
+          <br>
+          Your order total is <strong>$${total.toFixed(2)}</strong>.<br>
+          <br>
+          Please make check payable to:<br>
+          <strong>VP-8 Family Support Group</strong><br>
+          <br>
+          Mail to:<br>
+          <strong>Contact organizer for mailing address</strong><br>
+          <br>
+          A confirmation email has been sent to you with your order details.
+        </div>
+      `;
+    }
+    cart = [];
+    renderCart();
+  } else {
+    const link = getPaymentLink(paymentMethod, total, `VP-8 Fundraiser — ${buyerName}`);
+    const paymentWindow = window.open(link, '_blank');
+
+    if(!paymentWindow){
+      document.getElementById('paymentNote').innerHTML = `
+        <div style="color: var(--danger); line-height: 1.6;">
+          <strong>Payment window blocked by browser</strong><br><br>
+          <a href="${link}" target="_blank" style="color: var(--amber); text-decoration: underline;">Click here to open payment</a>
+        </div>
+      `;
+    } else {
+      document.getElementById('paymentNote').innerHTML = `
+        <div style="text-align: center; line-height: 1.8;">
+          <strong>Payment window opened!</strong><br><br>
+          Your ${paymentMethod} payment window should have opened in a new tab.<br>
+          Thank you for your order!
+        </div>
+      `;
+      cart = [];
+      renderCart();
+    }
+  }
+}
+
+function closePaymentPage(){
+  document.getElementById('paymentOverlay').classList.remove('active');
+}
+
+function isOrderingClosed(){
+  return new Date() >= ORDER_DEADLINE;
+}
+
+function formatDeadline(){
+  return ORDER_DEADLINE.toLocaleString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit'
+  });
+}
+
+function updateDeadlineBanner(){
+  const banner = document.getElementById('deadlineBanner');
+  const submitBtn = document.getElementById('submitBtn');
+  const closed = isOrderingClosed();
+
+  banner.classList.toggle('closed', closed);
+  banner.textContent = closed
+    ? `Ordering closed on ${formatDeadline()}. No further orders are being accepted.`
+    : `Order deadline: ${formatDeadline()}`;
+
+  submitBtn.disabled = closed;
+  if(closed){ submitBtn.textContent = 'Ordering Closed'; }
+}
+
+renderImageGallery();
+renderProducts();
+renderCart();
+updateDeadlineBanner();
+</script>
+
+</body>
+</html>
