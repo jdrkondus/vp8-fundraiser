@@ -20,8 +20,18 @@
 
 const NOTIFY_EMAIL = 'vp8tsg@gmail.com';
 const SHEET_NAME = 'Orders';
+const SPREADSHEET_ID = '1G4DJDQH9LOEFslQ4wl4mTjnBOry_ew9bLB5HbinFLZw';
 
 function doPost(e) {
+  if (!e || !e.postData) {
+    // This happens when doPost is run manually from the Apps Script editor
+    // (e.g. clicking "Run") instead of being triggered by a real POST
+    // request from the order form. Submit an order through index.html, or
+    // use Deploy > Test deployments, to test this function properly.
+    throw new Error('doPost was called without a request payload (e.postData is missing). ' +
+      'Run this via an actual form submission, not the editor\'s Run button.');
+  }
+
   const order = JSON.parse(e.postData.contents);
   const sheet = getOrdersSheet();
 
@@ -71,7 +81,7 @@ function doPost(e) {
 }
 
 function getOrdersSheet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAME);
