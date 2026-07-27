@@ -12,6 +12,11 @@
 // 5. Click Deploy, then authorize the requested permissions (Sheets + Gmail).
 // 6. Copy the Web App URL it gives you and paste it into the SCRIPT_URL
 //    constant near the top of the <script> block in VP8-Fundraiser.html.
+// NOTE: Notification/confirmation emails are sent FROM whichever Google
+// account this script is deployed/executed as ("Execute as: Me"). To have
+// emails come from vp8tsg@gmail.com, make sure step 1-4 above are done while
+// logged into the vp8tsg@gmail.com Google account (or transfer ownership of
+// the spreadsheet to that account first), so "Me" resolves to vp8tsg@gmail.com.
 
 const NOTIFY_EMAIL = 'vp8tsg@gmail.com';
 const SHEET_NAME = 'Orders';

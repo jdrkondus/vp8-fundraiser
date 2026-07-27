@@ -16,7 +16,7 @@
   <h1>VP-8 <span>Fighting Tigers</span></h1>
   <div class="subhead">Apparel Order Form</div>
   <div class="divider-line"></div>
-  <p class="mission">Every order supports the VP-8 Family Support Group. Select your gear below, add each size and color to your order, then submit your info at the bottom. Every submission is recorded privately for the organizer and emailed for confirmation.</p>
+  <p class="mission">Every order supports the VP-8 Tiger Support Group. Select your gear below, add each size and color to your order, then submit your info at the bottom. Every submission is recorded privately for the organizer and emailed for confirmation.</p>
   <div id="deadlineBanner" class="deadline-banner"></div>
 </header>
 
@@ -126,11 +126,12 @@ const COLORS = {
   "Green":  "#2f4a34",
   "Black":  "#1c1c1c",
 };
-const SIZES = ["XS","S","M","L","XL","2XL","3XL"];
-const YOUTH_SIZES = ["YXS","YS","YM","YL"];
+const UNISEX_SIZES = ["S","M","L","XL","2XL","3XL", "4XL","5XL"];
+const WOMENS_SIZES = ["XS","S","M","L","XL","2XL", "3XL", "4XL"];
+const YOUTH_SIZES = ["YXS","YS","YM","YL", "YXL"];
 
 const PRODUCTS = [
-  { id: "unisex", name: "Unisex T-Shirt", desc: "Classic crew neck fit. Front chest logo, full tiger-eyes back print.", price: 25, colors: ["Light Blue","Navy Blue","Orange","Tan","Green","Black"], image: "images/IMG_20260724_212124.jpg" },
+  { id: "unisex", name: "Unisex T-Shirt", desc: "Classic crew neck fit. Front chest logo, full tiger-eyes back print. Black, Orange, and Tan can be used for uniform undershirts.", price: 25, colors: ["Light Blue","Navy Blue","Orange","Tan","Green","Black"], image: "images/IMG_20260724_212124.jpg" },
   { id: "womens", name: "Women's Tank", desc: "Racerback tank fit. Front chest logo, full tiger-eyes back print.", price: 20, colors: ["Black"], image: "images/IMG_20260724_212126.jpg" },
   { id: "kids", name: "Child's Tee", desc: "Youth crew tee. Front chest logo, full tiger-eyes back print.", price: 20, colors: ["Light Blue", "Navy Blue", "Orange","Tan","Green","Black"], image: "images/IMG_20260724_212128.jpg" },
 ];
@@ -253,7 +254,7 @@ function renderProducts(){
       <div class="field-row">
         <span class="field-label">Size &amp; Quantity</span>
         <div class="size-grid">
-          ${(p.id === "kids" ? YOUTH_SIZES : SIZES).map(s => `
+          ${(p.id === "kids" ? YOUTH_SIZES : p.id === "womens" ? WOMENS_SIZES : UNISEX_SIZES).map(s => `
             <div class="size-cell">
               <label>${s}</label>
               <input type="number" min="0" value="0" id="qty-${p.id}-${s}" onchange="updateSubtotal('${p.id}')">
@@ -271,7 +272,7 @@ function renderProducts(){
 function updateSubtotal(productId){
   const p = PRODUCTS.find(x=>x.id===productId);
   let total = 0;
-  (p.id === "kids" ? YOUTH_SIZES : SIZES).forEach(s => {
+  (p.id === "kids" ? YOUTH_SIZES : p.id === "womens" ? WOMENS_SIZES : UNISEX_SIZES).forEach(s => {
     const input = document.getElementById(`qty-${productId}-${s}`);
     const qty = parseInt(input.value) || 0;
     total += qty * p.price;
@@ -283,7 +284,7 @@ function addToCart(productId){
   const p = PRODUCTS.find(x=>x.id===productId);
   const color = selectedColor[productId];
   let added = false;
-  const sizesToUse = p.id === "kids" ? YOUTH_SIZES : SIZES;
+  const sizesToUse = p.id === "kids" ? YOUTH_SIZES : p.id === "womens" ? WOMENS_SIZES : UNISEX_SIZES;
   sizesToUse.forEach(s => {
     const input = document.getElementById(`qty-${productId}-${s}`);
     const qty = parseInt(input.value) || 0;
