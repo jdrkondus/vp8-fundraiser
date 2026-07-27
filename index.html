@@ -71,7 +71,7 @@
         </div>
         <div class="field-row">
           <span class="field-label">Phone</span>
-          <input type="tel" id="buyerPhone" placeholder="(850) 555-0123">
+          <input type="tel" id="buyerPhone" placeholder="(850) 555-0123" required>
         </div>
         <div class="field-row full">
           <span class="field-label">Payment Method</span>
@@ -398,6 +398,8 @@ async function submitOrder(){
   if(!name){ flashToast('Please enter your name before submitting.', true); return; }
   const email = document.getElementById('buyerEmail').value.trim();
   if(!email){ flashToast('Please enter your email before submitting.', true); return; }
+  const phone = document.getElementById('buyerPhone').value.trim();
+  if(!phone){ flashToast('Please enter your phone number before submitting.', true); return; }
 
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
@@ -410,7 +412,7 @@ async function submitOrder(){
     submittedAt: new Date().toISOString(),
     buyerName: name,
     buyerEmail: email,
-    buyerPhone: document.getElementById('buyerPhone').value.trim(),
+    buyerPhone: phone,
     payment,
     notes: document.getElementById('buyerNotes').value.trim(),
     items: cart.map(l => ({ name: l.name, color: l.color, size: l.size, qty: l.qty, unitPrice: l.unitPrice })),
