@@ -1,0 +1,12 @@
+{
+  "name": "vp8-fundraiser",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Static site for the VP-8 Fighting Tigers fundraiser",
+  "scripts": {
+    "dev": "http-server . -p 8080 -c-1"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}

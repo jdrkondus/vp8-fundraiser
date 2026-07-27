@@ -171,6 +171,11 @@ main{
   font-size:20px;
   white-space:nowrap;
 }
+.image-gallery{
+  max-width:1080px;
+  margin:0 auto;
+  padding:44px 20px 0;
+}
 .image-slider{
   position:relative;
   width:100%;
