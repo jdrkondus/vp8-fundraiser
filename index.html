@@ -109,7 +109,6 @@
     </div>
 
     <div class="payment-actions">
-      <button class="payment-confirm hidden" id="confirmPaymentBtn" onclick="confirmPaymentSent()">I've Completed My Payment</button>
       <button class="payment-close" onclick="closePaymentPage()">Back to Form</button>
     </div>
   </div>
@@ -163,11 +162,8 @@ function getPaymentLink(method, amount, note){
   return `https://venmo.com/?txn=pay&recipients=${encodeURIComponent(VENMO_USERNAME)}&amount=${amount.toFixed(2)}&note=${encodeURIComponent(note)}`;
 }
 
-const PENDING_ORDER_KEY = 'vp8PendingOrder';
-
 let cart = [];
 let cartIdSeq = 1;
-let pendingOrder = null;
 const selectedColor = {};
 
 let currentSlideIndex = 0;
@@ -421,18 +417,14 @@ async function submitOrder(){
     total,
   };
 
-  const needsExternalPayment = payment !== 'Cash' && payment !== 'Check';
-
   try{
-    // Cash/Check have no online confirmation step, so record immediately.
-    // Venmo/PayPal orders are only recorded after the buyer confirms
-    // they've actually completed the payment (see confirmPaymentSent()).
-    if(!needsExternalPayment){
-      await recordOrder(order);
-    } else {
-      pendingOrder = order;
-      sessionStorage.setItem(PENDING_ORDER_KEY, JSON.stringify(order));
-    }
+    // Record the order immediately at submission time. Orders are never
+    // held back waiting for the buyer to return and confirm — if someone
+    // changes their mind and resubmits with a different payment method,
+    // that just produces an extra row in the sheet, which is preferable
+    // to silently losing a real paid order because the buyer never came
+    // back to tap confirm.
+    await recordOrder(order);
 
     // Show payment page
     showPaymentPage(order);
@@ -482,52 +474,9 @@ function showPaymentPage(order){
   document.getElementById('paymentOverlay').classList.add('active');
   window.scrollTo(0, 0);
 
-  const confirmBtn = document.getElementById('confirmPaymentBtn');
-  confirmBtn.classList.add('hidden');
-
-  // Handle different payment methods
-  if(order.payment === 'Cash' || order.payment === 'Check'){
-    const paymentNote = document.getElementById('paymentNote');
-    if(order.payment === 'Cash'){
-      paymentNote.innerHTML = `
-        <div style="text-align: left; line-height: 1.8;">
-          <strong>Payment Instructions for Cash:</strong><br>
-          <br>
-          Your order total is <strong>$${order.total.toFixed(2)}</strong>.<br>
-          <br>
-          Please deliver cash payment to:<br>
-          <strong>Squadron Support Fundraiser</strong><br>
-          <strong>Contact organizer for pickup details</strong><br>
-          <br>
-          A confirmation email has been sent to you with your order details.
-        </div>
-      `;
-    } else {
-      paymentNote.innerHTML = `
-        <div style="text-align: left; line-height: 1.8;">
-          <strong>Payment Instructions for Check:</strong><br>
-          <br>
-          Your order total is <strong>$${order.total.toFixed(2)}</strong>.<br>
-          <br>
-          Please make check payable to:<br>
-          <strong>VP-8 Family Support Group</strong><br>
-          <br>
-          Mail to:<br>
-          <strong>Contact organizer for mailing address</strong><br>
-          <br>
-          A confirmation email has been sent to you with your order details.
-        </div>
-      `;
-    }
-    cart = [];
-    renderCart();
-    return;
-  }
-
   const link = getPaymentLink(order.payment, order.total, `VP-8 Fundraiser — ${order.buyerName}`);
   cart = [];
   renderCart();
-  confirmBtn.classList.remove('hidden');
 
   // Use a real, user-tapped <a> link rather than a script-triggered
   // redirect (location.href / window.open). Android/iOS only reliably hand
@@ -536,60 +485,15 @@ function showPaymentPage(order){
   // script-initiated navigation (even one fired synchronously from a click
   // handler) is treated as less trustworthy and the app can open without
   // the amount pre-filled. target="_blank" also keeps this tab/page intact
-  // so the buyer can come back and confirm without losing their place.
+  // so the buyer doesn't lose their place.
   document.getElementById('paymentNote').innerHTML = `
     <div style="text-align: center; line-height: 1.8;">
       <strong>Total Due: $${order.total.toFixed(2)}</strong><br><br>
       <a href="${link}" target="_blank" rel="noopener" class="payment-confirm">Tap to Open ${order.payment}</a><br><br>
       <span style="font-size: 12.5px;">If the amount doesn't fill in automatically, please enter <strong>$${order.total.toFixed(2)}</strong> manually before sending.</span><br><br>
-      Once you've sent your payment, come back to this tab and tap the button below.<br>
-      Your order will not be recorded until you confirm.
+      Your order has already been recorded and a confirmation email has been sent.
     </div>
   `;
-}
-
-// If the buyer was redirected away for Venmo/PayPal and the browser
-// actually reloaded this page (e.g. app not installed, or they used the
-// back button), restore the pending order and let them confirm/pay again.
-function restorePendingOrderIfAny(){
-  const raw = sessionStorage.getItem(PENDING_ORDER_KEY);
-  if(!raw) return;
-  try{
-    const order = JSON.parse(raw);
-    pendingOrder = order;
-    renderOrderSummary(order);
-    document.getElementById('paymentOverlay').classList.add('active');
-    document.getElementById('paymentNote').innerHTML = `
-      <div style="text-align: center; line-height: 1.8;">
-        <strong>Welcome back!</strong><br><br>
-        If you've completed your ${order.payment} payment, tap the button below to finish your order.
-      </div>
-    `;
-    document.getElementById('confirmPaymentBtn').classList.remove('hidden');
-  } catch(err){
-    sessionStorage.removeItem(PENDING_ORDER_KEY);
-  }
-}
-
-async function confirmPaymentSent(){
-  if(!pendingOrder) return;
-  const confirmBtn = document.getElementById('confirmPaymentBtn');
-  confirmBtn.disabled = true;
-  confirmBtn.textContent = 'Confirming…';
-
-  await recordOrder(pendingOrder);
-  pendingOrder = null;
-  sessionStorage.removeItem(PENDING_ORDER_KEY);
-
-  document.getElementById('paymentNote').innerHTML = `
-    <div style="text-align: center; line-height: 1.8;">
-      <strong>Thank you — your order has been recorded!</strong><br><br>
-      A confirmation email has been sent to you with your order details.
-    </div>
-  `;
-  confirmBtn.classList.add('hidden');
-  confirmBtn.disabled = false;
-  confirmBtn.textContent = "I've Completed My Payment";
 }
 
 function closePaymentPage(){
@@ -625,7 +529,6 @@ renderImageGallery();
 renderProducts();
 renderCart();
 updateDeadlineBanner();
-restorePendingOrderIfAny();
 </script>
 
 </body>
